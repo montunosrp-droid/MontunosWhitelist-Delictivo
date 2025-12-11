@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const TOTAL_TIME_SECONDS = 20 * 60; // 20 minutos
+const TOTAL_TIME_SECONDS = 30 * 60; // 30 minutos
 
 type FormId = "1";
 
@@ -185,7 +185,7 @@ export default function WhitelistFormPage() {
               <p className="text-xs md:text-sm text-slate-300 mt-1">
                 Tienes{" "}
                 <span className="font-semibold text-orange-400">
-                  20 minutos
+                  30 minutos
                 </span>{" "}
                 para completar el formulario. No cambies de pestaña, no
                 recargues la página y no copies respuestas.
