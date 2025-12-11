@@ -18,9 +18,15 @@ const COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
 // Guarda la última vez (timestamp) que cada usuario intentó WL
 const lastAttemptById = new Map<string, number>();
 
-// IDs de tu servidor y rol de whitelist en Discord
-const GUILD_ID = "1062848940711616594";
-const WL_ROLE_ID = "1310428627271417897";
+// ✅ IDs de tu servidor y rol de whitelist en Discord DESDE ENV
+const GUILD_ID = process.env.DISCORD_GUILD_ID as string;
+const WL_ROLE_ID = process.env.DISCORD_WL_ROLE_ID as string;
+
+if (!GUILD_ID || !WL_ROLE_ID) {
+  throw new Error(
+    "DISCORD_GUILD_ID o DISCORD_WL_ROLE_ID no están configurados en las env vars"
+  );
+}
 
 // 👇 Función que revisa si el usuario YA tiene el rol de whitelist en Discord
 async function userHasWhitelistRole(user: any): Promise<boolean> {
@@ -69,12 +75,13 @@ async function userHasWhitelistRole(user: any): Promise<boolean> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // LOGIN DISCORD
   app.get("/api/auth/discord", passport.authenticate("discord"));
 
   // CALLBACK DISCORD con:
   // 1) Chequeo de rol WL
   // 2) Cooldown 12h
-  // 3) Formulario aleatorio
+  // 3) Formulario FIJO (solo 1, delictivo)
   app.get(
     "/api/auth/discord/callback",
     passport.authenticate("discord", {
@@ -115,16 +122,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Registrar nuevo intento (empieza/renueva cooldown)
       lastAttemptById.set(userId, now);
 
-      // 3️⃣ Formularios disponibles (solo índice 1 ó 2)
-      const forms = [{ id: "1" }, { id: "2" }];
+      // 3️⃣ Formulario FIJO (solo uno para la delictiva)
+      const f = "1" as const;
 
-      // Elegir formulario al azar
-      const randomIndex = Math.floor(Math.random() * forms.length);
-      const f = forms[randomIndex].id;
-
-      console.log("Formulario seleccionado:", f, "Usuario:", userId);
+      console.log("Formulario seleccionado (delictivo):", f, "Usuario:", userId);
 
       // Mandamos también el ID en el query string
+      // El FRONT usa este "id" para meter el Discord ID en el Google Form
       res.redirect(`/auth/callback?f=${f}&id=${userId}`);
     }
   );
@@ -155,11 +159,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated" });
 
-      const result: WhitelistCheckResult = await googleSheetsService.checkWhitelist(
-        req.user.discordId,
-        req.user.username,
-        req.user.email || undefined
-      );
+      const result: WhitelistCheckResult =
+        await googleSheetsService.checkWhitelist(
+          req.user.discordId,
+          req.user.username,
+          req.user.email || undefined
+        );
 
       res.json(result);
     } catch (error) {
