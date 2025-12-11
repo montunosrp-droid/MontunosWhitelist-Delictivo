@@ -176,6 +176,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔥 NUEVA RUTA: timeout de formulario → fuerza cooldown de 12h
+  app.post("/api/whitelist/timeout", requireAuth, (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const userId = String(req.user.discordId);
+      const now = Date.now();
+
+      // marcamos que acaba de consumir su intento
+      lastAttemptById.set(userId, now);
+
+      const hoursLeft = Math.ceil(COOLDOWN_MS / (1000 * 60 * 60));
+
+      console.log(
+        `⛔ Timeout de whitelist para ${userId}. Cooldown aplicado de ${hoursLeft}h.`
+      );
+
+      return res.json({
+        ok: true,
+        leftHours: hoursLeft,
+      });
+    } catch (error) {
+      console.error("Error en /api/whitelist/timeout:", error);
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to apply timeout cooldown",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
