@@ -1,74 +1,198 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
+
+function formatTime(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const h = String(hours).padStart(2, "0");
+  const m = String(minutes).padStart(2, "0");
+  const s = String(seconds).padStart(2, "0");
+
+  return { hours, minutes, seconds, label: `${h}:${m}:${s}` };
+}
 
 export default function CooldownPage() {
   const [, setLocation] = useLocation();
-  const [hoursLeft, setHoursLeft] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const params = new URLSearchParams(window.location.search);
-    const raw = params.get("left");
-    const num = raw ? Number(raw) : NaN;
-    if (!Number.isNaN(num) && num > 0) {
-      setHoursLeft(num);
-    } else {
-      setHoursLeft(null);
+    const leftParam = params.get("left"); // viene desde el backend: /cooldown?left=HORAS
+    let hoursLeft = Number(leftParam);
+
+    // Si viene algo raro, usamos 12h por defecto
+    if (!Number.isFinite(hoursLeft) || hoursLeft <= 0) {
+      hoursLeft = 12;
     }
+
+    const initialSeconds = Math.max(0, Math.round(hoursLeft * 60 * 60));
+    setSecondsLeft(initialSeconds);
+
+    if (initialSeconds <= 0) return;
+
+    const timerId = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev === null) return prev;
+        if (prev <= 1) {
+          window.clearInterval(timerId);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
   }, []);
 
-  const goBack = () => setLocation("/");
+  const handleBackHome = () => {
+    setLocation("/");
+  };
 
-  const text =
-    hoursLeft && hoursLeft > 0
-      ? `Debes esperar aproximadamente ${hoursLeft} hora${
-          hoursLeft > 1 ? "s" : ""
-        } antes de volver a intentar.`
-      : "Tu tiempo de intento ya está bloqueado temporalmente. Intenta más tarde.";
+  const timeInfo =
+    secondsLeft !== null ? formatTime(secondsLeft) : { label: "--:--:--", hours: 0, minutes: 0, seconds: 0 };
+
+  const isFinished = secondsLeft !== null && secondsLeft <= 0;
 
   return (
-    <div className="min-h-screen bg-[#02040a] text-slate-50 flex items-center justify-center relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-orange-500/20 blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-[-4rem] h-72 w-72 rounded-full bg-orange-600/18 blur-3xl" />
-        <div className="absolute bottom-[-8rem] right-[-4rem] h-72 w-72 rounded-full bg-amber-400/12 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(249,115,22,0.10),transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.9),_rgba(0,0,0,1))]" />
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#020617] to-black text-slate-50 flex flex-col items-center p-4">
+      <div className="w-full max-w-3xl space-y-6 mt-10">
+        {/* LOGO + TÍTULO */}
+        <div className="flex flex-col items-center gap-3">
+          <img
+            src="/delictivo-logo.png"
+            alt="Delictivo Logo"
+            className="w-32 h-32 md:w-40 md:h-40 drop-shadow-[0_0_25px_rgba(249,115,22,0.65)]"
+          />
+          <div className="text-center">
+            <h1 className="text-2xl md:text-3xl font-bold text-orange-400 drop-shadow-[0_0_18px_rgba(249,115,22,0.65)]">
+              Montunos RP – Sistema Delictivo
+            </h1>
+            <p className="text-sm md:text-base text-slate-300 mt-1">
+              Estás en <span className="text-orange-400 font-semibold">cooldown</span> de la whitelist delictiva.
+            </p>
+          </div>
+        </div>
 
-      <div className="relative z-10 w-full max-w-3xl px-4 md:px-6">
-        <Card className="bg-black/85 border border-orange-500/25 shadow-[0_18px_45px_rgba(0,0,0,0.9)]">
-          <CardHeader className="border-b border-orange-500/15">
-            <CardTitle className="flex items-center gap-3 text-base md:text-lg text-slate-100">
-              <span className="h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
-              Cooldown de Whitelist Delictiva
+        {/* CARD PRINCIPAL */}
+        <Card className="bg-[#020617]/90 border border-orange-500/60 shadow-[0_0_40px_rgba(249,115,22,0.35)]">
+          <CardHeader className="border-b border-orange-500/40">
+            <CardTitle className="flex items-center justify-between text-sm md:text-base text-slate-100">
+              <span>Cooldown activo – Whitelist Delictiva</span>
+              <span className="text-[11px] md:text-xs uppercase tracking-[0.15em] text-orange-400">
+                Anti-spam &amp; Anti-copy
+              </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-5 space-y-4 text-sm md:text-[15px] text-slate-200">
-            <p className="text-orange-300 font-medium">
-              Te adelantaste demasiado o ya intentaste la whitelist hace poco.
-            </p>
 
-            <p>{text}</p>
+          <CardContent className="py-5 px-4 md:px-6 space-y-5">
+            {/* TEXTO EXPLICATIVO */}
+            <div className="space-y-2 text-sm md:text-base text-slate-200">
+              {!isFinished ? (
+                <>
+                  <p>
+                    Para mantener el sistema{" "}
+                    <span className="text-orange-400 font-semibold">limpio y serio</span>, cada intento fallido de
+                    whitelist delictiva te deja en espera.
+                  </p>
+                  <p className="text-slate-300">
+                    No es bug, no es error: es parte del <span className="text-orange-400 font-semibold">seguro</span>{" "}
+                    del sistema para evitar abuso, copias y multi-cuentas.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Tu cooldown ha terminado. Ya puedes volver a intentar tu{" "}
+                    <span className="text-orange-400 font-semibold">whitelist delictiva</span>.
+                  </p>
+                  <p className="text-slate-300">
+                    Te recomendamos leer bien las normativas antes de volver a aplicar para evitar otro bloqueo.
+                  </p>
+                </>
+              )}
+            </div>
 
-            <p className="text-xs md:text-sm text-slate-400">
-              Este sistema protege la whitelist delictiva de spam y de gente que
-              quiere probar suerte respondiendo al azar. Aprovecha el tiempo
-              para leer normativas y pensar bien tus respuestas.
-            </p>
+            {/* BLOQUE DEL CONTADOR */}
+            <div className="grid md:grid-cols-[1.1fr,0.9fr] gap-4 items-center">
+              <div className="bg-black/40 border border-orange-500/50 rounded-xl px-4 py-3 md:py-4">
+                <p className="text-[11px] md:text-xs uppercase tracking-[0.18em] text-slate-400 mb-1">
+                  Tiempo restante
+                </p>
 
-            <div className="pt-3 flex justify-center">
+                {!isFinished ? (
+                  <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-2">
+                    <div className="font-mono text-3xl md:text-4xl font-semibold text-orange-400 drop-shadow-[0_0_18px_rgba(249,115,22,0.8)]">
+                      {timeInfo.label}
+                    </div>
+                    <div className="text-xs md:text-sm text-slate-300">
+                      Aproximadamente{" "}
+                      <span className="font-semibold text-orange-300">
+                        {timeInfo.hours}h {timeInfo.minutes}m
+                      </span>{" "}
+                      antes de que puedas volver a intentar.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="font-mono text-2xl md:text-3xl font-semibold text-emerald-400 drop-shadow-[0_0_18px_rgba(34,197,94,0.8)]">
+                    00:00:00
+                  </div>
+                )}
+              </div>
+
+              {/* RECOMENDACIONES */}
+              <div className="space-y-1.5 text-xs md:text-sm text-slate-300">
+                <p className="flex items-start gap-2">
+                  <span className="mt-[2px] text-orange-400">•</span>
+                  <span>
+                    Aprovechá el tiempo para leer{" "}
+                    <span className="text-orange-300 font-semibold">normativas generales y delictivas</span>.
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="mt-[2px] text-orange-400">•</span>
+                  <span>
+                    No intentes forzar el sistema ni crear cuentas nuevas, eso solo complica tu historial dentro de
+                    Montunos RP.
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="mt-[2px] text-orange-400">•</span>
+                  <span>
+                    Si creés que hay un error, abrí un ticket con{" "}
+                    <span className="text-orange-300 font-semibold">pruebas claras</span> y el staff lo revisa.
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* BOTÓN */}
+            <div className="flex justify-end pt-2">
               <Button
-                onClick={goBack}
-                variant="outline"
-                className="border-orange-500/60 text-orange-200 bg-black/60 hover:bg-orange-500/10 hover:text-orange-300 rounded-2xl px-8"
+                variant={isFinished ? "default" : "outline"}
+                onClick={handleBackHome}
+                className={
+                  isFinished
+                    ? "bg-orange-500 hover:bg-orange-600 text-black font-semibold shadow-[0_0_22px_rgba(249,115,22,0.9)] border-none"
+                    : "border-orange-400/70 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200"
+                }
               >
-                Volver al inicio
+                {isFinished ? "Volver al inicio y reintentar" : "Volver al inicio"}
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* PIE DE PÁGINA */}
+        <p className="text-[11px] md:text-xs text-center text-slate-500 mt-2">
+          Este cooldown forma parte del sistema de seguridad delictivo de{" "}
+          <span className="text-orange-400 font-semibold">Montunos RP</span>.
+        </p>
       </div>
     </div>
   );
