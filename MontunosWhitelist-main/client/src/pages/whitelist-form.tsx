@@ -6,25 +6,23 @@ import { Button } from "@/components/ui/button";
 
 const TOTAL_TIME_SECONDS = 20 * 60; // 20 minutos
 
-// Config de formularios: SOLO ID, sin nombre
-const FORMS: Record<"1" | "2", { baseUrl: string; idField: string }> = {
+type FormId = "1";
+
+// Config de formularios: SOLO 1 (delictivo)
+const FORMS: Record<FormId, { baseUrl: string; idField: string }> = {
   "1": {
     baseUrl:
-      "https://docs.google.com/forms/d/e/1FAIpQLSdGJQRBMUi836oxKlSYwBKulZ2XsKdJXiFdpucCScRQUaI9YA/viewform",
-    idField: "entry.196485464",
-  },
-  "2": {
-    baseUrl:
-      "https://docs.google.com/forms/d/e/1FAIpQLSebFJ35j4b4cPDYos8Wx2NtmzCUsYTRT2Bg8nOgxQfEErQ4dg/viewform",
-    idField: "entry.1991299365",
+      "https://docs.google.com/forms/d/e/1FAIpQLSftx_McWR4woX-wYB-BI4jd6bvNrEirUq5sldh_SdtbQ1tvaQ/viewform",
+    // Pregunta donde se va a rellenar el Discord ID
+    idField: "entry.1571619400",
   },
 };
 
 // === SISTEMA DE TIMER + PENALIZACIÓN ===
-const getStartKey = (id: string | null, f: string) =>
+const getStartKey = (id: string | null, f: FormId) =>
   `wl_start_${id ?? "unknown"}_${f}`;
 
-const getPenaltyKey = (id: string | null, f: string) =>
+const getPenaltyKey = (id: string | null, f: FormId) =>
   `wl_penalty_${id ?? "unknown"}_${f}`;
 
 export default function WhitelistFormPage() {
@@ -39,7 +37,7 @@ export default function WhitelistFormPage() {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    const fParam = (params.get("f") ?? "1") as "1" | "2";
+    const fParam = ((params.get("f") ?? "1") as FormId) || "1";
     const discordId = params.get("id");
 
     const startKey = getStartKey(discordId, fParam);
@@ -86,7 +84,7 @@ export default function WhitelistFormPage() {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    const fParam = (params.get("f") ?? "1") as "1" | "2";
+    const fParam = ((params.get("f") ?? "1") as FormId) || "1";
     const discordId = params.get("id");
 
     const penaltyKey = getPenaltyKey(discordId, fParam);
@@ -133,7 +131,7 @@ export default function WhitelistFormPage() {
 
     const params = new URLSearchParams(window.location.search);
 
-    const fParam = (params.get("f") ?? "1") as "1" | "2";
+    const fParam = ((params.get("f") ?? "1") as FormId) || "1";
     const discordId = params.get("id");
 
     const config = FORMS[fParam] ?? FORMS["1"];
@@ -157,7 +155,7 @@ export default function WhitelistFormPage() {
     // Penalizamos también cuando eligen salir a propósito
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const fParam = (params.get("f") ?? "1") as "1" | "2";
+      const fParam = ((params.get("f") ?? "1") as FormId) || "1";
       const discordId = params.get("id");
       const penaltyKey = getPenaltyKey(discordId, fParam);
 
@@ -182,13 +180,15 @@ export default function WhitelistFormPage() {
           <CardContent className="py-4 px-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-display text-white">
-                Formulario de Whitelist – Montunos RP V2
+                Formulario de Whitelist Delictiva – Montunos RP
               </h1>
               <p className="text-xs md:text-sm text-slate-300 mt-1">
                 Tienes{" "}
-                <span className="font-semibold text-orange-400">20 minutos</span>{" "}
-                para completar el formulario. No cambies de pestaña, no recargues la
-                página y no copies respuestas.
+                <span className="font-semibold text-orange-400">
+                  20 minutos
+                </span>{" "}
+                para completar el formulario. No cambies de pestaña, no
+                recargues la página y no copies respuestas.
               </p>
             </div>
 
@@ -217,8 +217,8 @@ export default function WhitelistFormPage() {
         {isTimeOver && (
           <Card className="bg-red-950/70 border border-red-500/70">
             <CardContent className="py-3 px-4 text-sm text-red-200">
-              El tiempo ha finalizado. Si aún no enviaste el formulario, tus respuestas
-              podrían no ser tomadas en cuenta.
+              El tiempo ha finalizado. Si aún no enviaste el formulario, tus
+              respuestas podrían no ser tomadas en cuenta.
             </CardContent>
           </Card>
         )}
@@ -234,7 +234,7 @@ export default function WhitelistFormPage() {
           <CardContent className="h-[70vh]">
             {formUrl ? (
               <iframe
-                title="Whitelist Montunos RP V2"
+                title="Whitelist Delictiva Montunos RP"
                 src={formUrl}
                 className="w-full h-full border-0 rounded-md"
               />
