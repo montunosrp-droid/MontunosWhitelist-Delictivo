@@ -31,6 +31,24 @@ export default function WhitelistFormPage() {
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_TIME_SECONDS);
   const [isTimeOver, setIsTimeOver] = useState(false);
   const [formUrl, setFormUrl] = useState<string>("");
+  const [timeoutSent, setTimeoutSent] = useState(false); // ⬅️ para no mandar el timeout 2 veces
+
+  // ⚠️ Cuando se acaba el tiempo, avisamos al backend y mandamos a /cooldown
+  const handleTimeout = async () => {
+    if (timeoutSent) return;
+    setTimeoutSent(true);
+
+    try {
+      await fetch("/api/whitelist/timeout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Error enviando timeout de whitelist:", err);
+    }
+
+    setLocation("/cooldown");
+  };
 
   // TIMER con tiempo persistente + penalización
   useEffect(() => {
@@ -71,12 +89,14 @@ export default function WhitelistFormPage() {
         setSecondsLeft(0);
         setIsTimeOver(true);
         clearInterval(timer);
+        handleTimeout(); // ⬅️ aquí disparamos el timeout
       } else {
         setSecondsLeft(remaining);
       }
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Penalizar SOLO cuando cambian de pestaña / ventana (tab oculta)
@@ -104,6 +124,7 @@ export default function WhitelistFormPage() {
         const updated = prev - 5 * 60;
         if (updated <= 0) {
           setIsTimeOver(true);
+          handleTimeout(); // si se murió por penalización, también timeout
           return 0;
         }
 
@@ -122,6 +143,7 @@ export default function WhitelistFormPage() {
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     };
   }, []);
 
@@ -217,8 +239,8 @@ export default function WhitelistFormPage() {
         {isTimeOver && (
           <Card className="bg-red-950/70 border border-red-500/70">
             <CardContent className="py-3 px-4 text-sm text-red-200">
-              El tiempo ha finalizado. Si aún no enviaste el formulario, tus
-              respuestas podrían no ser tomadas en cuenta.
+              El tiempo ha finalizado. Serás enviado al cooldown del sistema
+              delictivo de Montunos RP.
             </CardContent>
           </Card>
         )}
@@ -232,7 +254,7 @@ export default function WhitelistFormPage() {
           </CardHeader>
 
           <CardContent className="h-[70vh]">
-            {formUrl ? (
+            {!isTimeOver && formUrl ? (
               <iframe
                 title="Whitelist Delictiva Montunos RP"
                 src={formUrl}
@@ -240,7 +262,9 @@ export default function WhitelistFormPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sm text-slate-300">
-                Cargando formulario...
+                {isTimeOver
+                  ? "Tiempo finalizado. Redirigiendo al cooldown..."
+                  : "Cargando formulario..."}
               </div>
             )}
           </CardContent>
