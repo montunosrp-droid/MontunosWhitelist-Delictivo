@@ -1,24 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const TOTAL_TIME_SECONDS = 30 * 60; // 30 minutos
+const COOLDOWN_HOURS = 12;
 
 type FormId = "1";
 
-// Config de formularios: SOLO 1 (delictivo)
 const FORMS: Record<FormId, { baseUrl: string; idField: string }> = {
   "1": {
     baseUrl:
       "https://docs.google.com/forms/d/e/1FAIpQLSftx_McWR4woX-wYB-BI4jd6bvNrEirUq5sldh_SdtbQ1tvaQ/viewform",
-    // Pregunta donde se va a rellenar el Discord ID
     idField: "entry.1571619400",
   },
 };
 
-// === SISTEMA DE TIMER + PENALIZACIÓN ===
+// === TIMER PERSISTENTE + PENALIZACIÓN ===
 const getStartKey = (id: string | null, f: FormId) =>
   `wl_start_${id ?? "unknown"}_${f}`;
 
@@ -31,26 +30,42 @@ export default function WhitelistFormPage() {
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_TIME_SECONDS);
   const [isTimeOver, setIsTimeOver] = useState(false);
   const [formUrl, setFormUrl] = useState<string>("");
-  const [timeoutSent, setTimeoutSent] = useState(false); // ⬅️ para no mandar el timeout 2 veces
 
-  // ⚠️ Cuando se acaba el tiempo, avisamos al backend y mandamos a /cooldown
+  // ✅ evita doble timeout por interval + visibilitychange
+  const timeoutSentRef = useRef(false);
+
+  // ✅ Cuando se acaba el tiempo: avisar backend (si hay sesión) y mandar a cooldown
   const handleTimeout = async () => {
-    if (timeoutSent) return;
-    setTimeoutSent(true);
+    if (timeoutSentRef.current) return;
+    timeoutSentRef.current = true;
+
+    // Cortamos el form en UI
+    setIsTimeOver(true);
+    setSecondsLeft(0);
 
     try {
-      await fetch("/api/whitelist/timeout", {
+      const resp = await fetch("/api/whitelist/timeout", {
         method: "POST",
         credentials: "include",
       });
+
+      // Si no está autenticado, no lo mandés al cooldown (si no, se queda trabado)
+      if (resp.status === 401) {
+        setLocation("/?error=not_authenticated");
+        return;
+      }
+
+      // cooldown con contador
+      setLocation(`/cooldown?left=${COOLDOWN_HOURS}`);
+      return;
     } catch (err) {
       console.error("Error enviando timeout de whitelist:", err);
+      // fallback: igual lo mandamos al cooldown con el número fijo
+      setLocation(`/cooldown?left=${COOLDOWN_HOURS}`);
     }
-
-    setLocation("/cooldown");
   };
 
-  // TIMER con tiempo persistente + penalización
+  // ✅ TIMER con tiempo persistente
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -64,7 +79,6 @@ export default function WhitelistFormPage() {
     const now = Date.now();
     let startTime = Number(window.localStorage.getItem(startKey));
 
-    // Si es la primera vez que entra, seteamos el inicio AHORITA
     if (!startTime) {
       startTime = now;
       window.localStorage.setItem(startKey, String(startTime));
@@ -86,10 +100,8 @@ export default function WhitelistFormPage() {
       const remaining = TOTAL_TIME_SECONDS - elapsedSeconds;
 
       if (remaining <= 0) {
-        setSecondsLeft(0);
-        setIsTimeOver(true);
         clearInterval(timer);
-        handleTimeout(); // ⬅️ aquí disparamos el timeout
+        handleTimeout();
       } else {
         setSecondsLeft(remaining);
       }
@@ -99,32 +111,29 @@ export default function WhitelistFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Penalizar SOLO cuando cambian de pestaña / ventana (tab oculta)
+  // ✅ Penalizar solo al ocultarse (cambiar tab/minimizar)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
     const fParam = ((params.get("f") ?? "1") as FormId) || "1";
     const discordId = params.get("id");
-
     const penaltyKey = getPenaltyKey(discordId, fParam);
 
     const applyPenalty = () => {
-      // Si ya se acabó el tiempo, ya no sumamos más penalización
       setSecondsLeft((prev) => {
         if (prev <= 0) return 0;
 
         const currentPenalty = Number(
           window.localStorage.getItem(penaltyKey) ?? "0"
         );
-        const newPenalty = currentPenalty + 5 * 60; // 5 minutos
-
+        const newPenalty = currentPenalty + 5 * 60; // 5 min
         window.localStorage.setItem(penaltyKey, String(newPenalty));
 
         const updated = prev - 5 * 60;
+
         if (updated <= 0) {
-          setIsTimeOver(true);
-          handleTimeout(); // si se murió por penalización, también timeout
+          handleTimeout();
           return 0;
         }
 
@@ -133,66 +142,53 @@ export default function WhitelistFormPage() {
     };
 
     const handleVisibility = () => {
-      // Solo penalizamos cuando el documento queda oculto (cambian de tab / minimizan)
-      if (document.hidden) {
-        applyPenalty();
-      }
+      if (document.hidden) applyPenalty();
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    };
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Construcción de URL con ID del query (?id=...)
+  // ✅ URL del form con prefill del ID
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-
     const fParam = ((params.get("f") ?? "1") as FormId) || "1";
     const discordId = params.get("id");
 
     const config = FORMS[fParam] ?? FORMS["1"];
 
-    // Si por alguna razón no viene id, mostramos el form sin prefill
     if (!discordId) {
       setFormUrl(config.baseUrl);
       return;
     }
 
     const encodedId = encodeURIComponent(discordId);
-    const url = `${config.baseUrl}?usp=pp_url&${config.idField}=${encodedId}`;
-
-    setFormUrl(url);
+    setFormUrl(`${config.baseUrl}?usp=pp_url&${config.idField}=${encodedId}`);
   }, []);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
+  const timeText =
+    String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+
   const handleExit = () => {
-    // Penalizamos también cuando eligen salir a propósito
+    // Penaliza al salir
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const fParam = ((params.get("f") ?? "1") as FormId) || "1";
       const discordId = params.get("id");
       const penaltyKey = getPenaltyKey(discordId, fParam);
 
-      const currentPenalty = Number(
-        window.localStorage.getItem(penaltyKey) ?? "0"
-      );
-      const newPenalty = currentPenalty + 5 * 60;
-      window.localStorage.setItem(penaltyKey, String(newPenalty));
+      const currentPenalty = Number(window.localStorage.getItem(penaltyKey) ?? "0");
+      window.localStorage.setItem(penaltyKey, String(currentPenalty + 5 * 60));
     }
 
     setLocation("/");
   };
-
-  const timeText =
-    String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 flex flex-col items-center p-4">
@@ -206,11 +202,9 @@ export default function WhitelistFormPage() {
               </h1>
               <p className="text-xs md:text-sm text-slate-300 mt-1">
                 Tienes{" "}
-                <span className="font-semibold text-orange-400">
-                  30 minutos
-                </span>{" "}
-                para completar el formulario. No cambies de pestaña, no
-                recargues la página y no copies respuestas.
+                <span className="font-semibold text-orange-400">30 minutos</span>{" "}
+                para completar el formulario. No cambies de pestaña, no recargues la
+                página y no copies respuestas.
               </p>
             </div>
 
@@ -239,13 +233,12 @@ export default function WhitelistFormPage() {
         {isTimeOver && (
           <Card className="bg-red-950/70 border border-red-500/70">
             <CardContent className="py-3 px-4 text-sm text-red-200">
-              El tiempo ha finalizado. Serás enviado al cooldown del sistema
-              delictivo de Montunos RP.
+              El tiempo ha finalizado. Serás enviado al cooldown del sistema delictivo.
             </CardContent>
           </Card>
         )}
 
-        {/* FORMULARIO */}
+        {/* FORM */}
         <Card className="overflow-hidden bg-slate-950/80 border border-slate-800 shadow-2xl">
           <CardHeader className="border-b border-slate-800">
             <CardTitle className="text-base md:text-lg text-slate-100">
@@ -262,15 +255,13 @@ export default function WhitelistFormPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sm text-slate-300">
-                {isTimeOver
-                  ? "Tiempo finalizado. Redirigiendo al cooldown..."
-                  : "Cargando formulario..."}
+                {isTimeOver ? "Tiempo finalizado. Redirigiendo..." : "Cargando formulario..."}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* BOTÓN SALIR */}
+        {/* SALIR */}
         <div className="flex justify-end">
           <Button
             variant="ghost"
