@@ -34,6 +34,9 @@ export default function WhitelistFormPage() {
   // ✅ evita doble timeout por interval + visibilitychange
   const timeoutSentRef = useRef(false);
 
+  // ✅ evitar mandar start 2 veces (React strict mode / re-render)
+  const startSentRef = useRef(false);
+
   // ✅ Cuando se acaba el tiempo: avisar backend (si hay sesión) y mandar a cooldown
   const handleTimeout = async () => {
     if (timeoutSentRef.current) return;
@@ -64,6 +67,38 @@ export default function WhitelistFormPage() {
       setLocation(`/cooldown?left=${COOLDOWN_HOURS}`);
     }
   };
+
+  // ✅ MARCAR INICIO REAL DE WL (esto es lo que faltaba)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (startSentRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const discordId = params.get("id");
+
+    // Si no viene id, no marcamos start
+    if (!discordId) return;
+
+    startSentRef.current = true;
+
+    (async () => {
+      try {
+        const resp = await fetch("/api/whitelist/start", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (resp.status === 401) {
+          // sin sesión: mejor regresarlo al home para que haga login bien
+          setLocation("/?error=not_authenticated");
+          return;
+        }
+      } catch (err) {
+        console.error("Error marcando inicio de whitelist:", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ✅ TIMER con tiempo persistente
   useEffect(() => {
@@ -146,7 +181,8 @@ export default function WhitelistFormPage() {
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,7 +219,9 @@ export default function WhitelistFormPage() {
       const discordId = params.get("id");
       const penaltyKey = getPenaltyKey(discordId, fParam);
 
-      const currentPenalty = Number(window.localStorage.getItem(penaltyKey) ?? "0");
+      const currentPenalty = Number(
+        window.localStorage.getItem(penaltyKey) ?? "0"
+      );
       window.localStorage.setItem(penaltyKey, String(currentPenalty + 5 * 60));
     }
 
@@ -202,9 +240,11 @@ export default function WhitelistFormPage() {
               </h1>
               <p className="text-xs md:text-sm text-slate-300 mt-1">
                 Tienes{" "}
-                <span className="font-semibold text-orange-400">30 minutos</span>{" "}
-                para completar el formulario. No cambies de pestaña, no recargues la
-                página y no copies respuestas.
+                <span className="font-semibold text-orange-400">
+                  30 minutos
+                </span>{" "}
+                para completar el formulario. No cambies de pestaña, no recargues
+                la página y no copies respuestas.
               </p>
             </div>
 
@@ -233,7 +273,8 @@ export default function WhitelistFormPage() {
         {isTimeOver && (
           <Card className="bg-red-950/70 border border-red-500/70">
             <CardContent className="py-3 px-4 text-sm text-red-200">
-              El tiempo ha finalizado. Serás enviado al cooldown del sistema delictivo.
+              El tiempo ha finalizado. Serás enviado al cooldown del sistema
+              delictivo.
             </CardContent>
           </Card>
         )}
@@ -255,7 +296,9 @@ export default function WhitelistFormPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sm text-slate-300">
-                {isTimeOver ? "Tiempo finalizado. Redirigiendo..." : "Cargando formulario..."}
+                {isTimeOver
+                  ? "Tiempo finalizado. Redirigiendo..."
+                  : "Cargando formulario..."}
               </div>
             )}
           </CardContent>
