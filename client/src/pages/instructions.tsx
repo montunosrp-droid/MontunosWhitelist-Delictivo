@@ -1,77 +1,52 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import banner from "../assets/banner.png"; // ⚠️ ajustá el path si tu banner está en otro lado
 
-export default function InstructionsPage() {
-  const [, setLocation] = useLocation();
-
-  // ⬇️ leemos los params que vienen del backend
-  const params = new URLSearchParams(window.location.search);
-  const f = params.get("f") ?? "1";
-  const id = params.get("id");
-
-  useEffect(() => {
-    // Si no viene el ID, algo salió mal en el flujo
-    if (!id) {
-      setLocation("/?error=missing_id");
-    }
-  }, [id, setLocation]);
-
-  const handleStart = async () => {
-    try {
-      // (opcional pero recomendado)
-      // avisa al backend que inició la whitelist
-      await fetch("/api/whitelist/start", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (e) {
-      console.warn("No se pudo registrar inicio de WL (no es crítico)");
-    }
-
-    // ⬇️ MUY IMPORTANTE: reenviar f + id
-    setLocation(`/whitelist-form?f=${f}&id=${id}`);
-  };
+export default function Instructions() {
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#02040a] text-slate-50 flex items-center justify-center relative overflow-hidden">
-      {/* FONDO */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-orange-500/20 blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-[-4rem] h-72 w-72 rounded-full bg-orange-600/18 blur-3xl" />
-        <div className="absolute bottom-[-8rem] right-[-4rem] h-72 w-72 rounded-full bg-amber-400/12 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-4xl px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-orange-400">
-            Instrucciones de la Whitelist Delictiva
-          </h1>
-          <p className="text-sm text-slate-400 mt-2">
-            Léelo bien. Aquí no hay segundas oportunidades.
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-slate-900 to-black px-4">
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden border border-orange-500/30 bg-[#0b1624] shadow-2xl">
+        
+        {/* BANNER */}
+        <div className="w-full h-40">
+          <img
+            src={banner}
+            alt="Montunos RP"
+            className="w-full h-full object-cover"
+          />
         </div>
 
-        <Card className="bg-black/80 border border-orange-500/20">
-          <CardHeader>
-            <CardTitle>Antes de empezar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <p>• Tenés 30 minutos exactos.</p>
-            <p>• Cambiar de pestaña penaliza tiempo.</p>
-            <p>• Trampa = fuera delictivo.</p>
+        {/* CONTENIDO */}
+        <div className="p-8 text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">
+            Instrucciones para la Whitelist – Montunos RP V2
+          </h1>
 
-            <div className="flex justify-center pt-4">
-              <Button
-                onClick={handleStart}
-                className="bg-orange-500 hover:bg-orange-400 text-black font-bold px-8 py-4 rounded-xl"
-              >
-                Entendido, comenzar whitelist
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <p className="text-sm text-slate-300 mb-6">
+            Antes de iniciar el formulario, lee con atención las siguientes indicaciones.
+          </p>
+
+          <ul className="text-left space-y-3 text-slate-200 mb-6">
+            <li>• Tendrás <span className="text-orange-400 font-semibold">30 minutos</span> para completar el formulario.</li>
+            <li>• <span className="text-orange-400 font-semibold">No cambies de pestaña</span>, no actualices la página y no copies respuestas.</li>
+            <li>• Formularios incompletos o con datos incorrectos serán <span className="text-red-400 font-semibold">rechazados</span>.</li>
+            <li>• El <span className="text-orange-400 font-semibold">Staff Delictivo</span> revisará tus respuestas y recibirás tu resultado por <span className="text-indigo-400 font-semibold">Discord</span>.</li>
+          </ul>
+
+          <p className="text-slate-300 mb-6">
+            Cuando estés listo(a), podés comenzar.  
+            <br />
+            <span className="text-orange-400 font-semibold">Éxitos en tu postulación.</span>
+          </p>
+
+          <button
+            onClick={() => navigate("/whitelist")}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold py-3 rounded-lg transition"
+          >
+            Comenzar
+          </button>
+        </div>
       </div>
     </div>
   );
