@@ -1,23 +1,17 @@
-import { useNavigate } from "react-router-dom";
-import banner from "../assets/banner.png"; // ⚠️ ajustá el path si tu banner está en otro lado
+import banner from "../assets/banner.png"; // ajustá el path si hace falta
 
 export default function Instructions() {
-  const navigate = useNavigate();
+  const go = () => {
+    window.location.href = "/whitelist";
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-slate-900 to-black px-4">
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden border border-orange-500/30 bg-[#0b1624] shadow-2xl">
-        
-        {/* BANNER */}
         <div className="w-full h-40">
-          <img
-            src={banner}
-            alt="Montunos RP"
-            className="w-full h-full object-cover"
-          />
+          <img src={banner} alt="Montunos RP" className="w-full h-full object-cover" />
         </div>
 
-        {/* CONTENIDO */}
         <div className="p-8 text-center">
           <h1 className="text-2xl font-bold text-white mb-2">
             Instrucciones para la Whitelist – Montunos RP V2
@@ -35,13 +29,13 @@ export default function Instructions() {
           </ul>
 
           <p className="text-slate-300 mb-6">
-            Cuando estés listo(a), podés comenzar.  
+            Cuando estés listo(a), podés comenzar.
             <br />
             <span className="text-orange-400 font-semibold">Éxitos en tu postulación.</span>
           </p>
 
           <button
-            onClick={() => navigate("/whitelist")}
+            onClick={go}
             className="w-full bg-orange-500 hover:bg-orange-600 text-black font-bold py-3 rounded-lg transition"
           >
             Comenzar
