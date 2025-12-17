@@ -12,7 +12,7 @@ export default function Instructions() {
 
         <div className="p-8 text-center">
           <h1 className="text-2xl font-bold text-white mb-2">
-            Instrucciones para la Whitelist – Montunos RP V2
+            Instrucciones para la WHITELIST DELICTIVA Montunos RP V2
           </h1>
 
           <p className="text-sm text-slate-300 mb-6">
