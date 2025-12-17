@@ -1,5 +1,3 @@
-import banner from "../assets/banner.png"; // ajustá el path si hace falta
-
 export default function Instructions() {
   const go = () => {
     window.location.href = "/whitelist";
@@ -9,7 +7,7 @@ export default function Instructions() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-slate-900 to-black px-4">
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden border border-orange-500/30 bg-[#0b1624] shadow-2xl">
         <div className="w-full h-40">
-          <img src={banner} alt="Montunos RP" className="w-full h-full object-cover" />
+          <img src="/banner.png" alt="Montunos RP" className="w-full h-full object-cover" />
         </div>
 
         <div className="p-8 text-center">
