@@ -5,36 +5,46 @@ export default function Instructions() {
 
   const go = async () => {
     try {
+      // ✅ Agarrar params que vienen del auth flow (f e id)
+      const params = new URLSearchParams(window.location.search);
+      const f = params.get("f") ?? "1";
+      const id = params.get("id");
+
+      if (!id) {
+        setLocation("/?error=missing_id");
+        return;
+      }
+
       const resp = await fetch("/api/whitelist/start", {
         method: "POST",
         credentials: "include",
       });
 
-      // 🔴 SI ESTÁ EN COOLDOWN
+      // 🔴 COOLDOWN
       if (resp.status === 429) {
         const data = await resp.json();
-        const left = data?.left ?? 12; // fallback seguro
+        const left = data?.left ?? 12;
         setLocation(`/cooldown?left=${left}`);
         return;
       }
 
-      // 🔴 SI NO ESTÁ AUTENTICADO
+      // 🔴 NO AUTH
       if (resp.status === 401) {
         setLocation("/?error=not_authenticated");
         return;
       }
+
+      // ✅ TODO BIEN → FORM REAL
+      setLocation(`/whitelist-form?f=${f}&id=${id}`);
     } catch (err) {
       console.error("Error iniciando whitelist:", err);
+      setLocation("/?error=start_failed");
     }
-
-    // ✅ TODO BIEN → ENTRA AL FORM
-    setLocation("/whitelist");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-slate-900 to-black px-4">
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden border border-orange-500/30 bg-[#0b1624] shadow-2xl">
-        
         {/* BANNER */}
         <div className="w-full h-40">
           <img
@@ -56,27 +66,20 @@ export default function Instructions() {
 
           <ul className="text-left space-y-3 text-slate-200 mb-6">
             <li>
-              • Tendrás{" "}
-              <span className="text-orange-400 font-semibold">30 minutos</span>{" "}
+              • Tendrás <span className="text-orange-400 font-semibold">30 minutos</span>{" "}
               para completar el formulario.
             </li>
             <li>
-              •{" "}
-              <span className="text-orange-400 font-semibold">
-                No cambies de pestaña
-              </span>
-              , no actualices la página y no copies respuestas.
+              • <span className="text-orange-400 font-semibold">No cambies de pestaña</span>, no
+              actualices la página y no copies respuestas.
             </li>
             <li>
               • Formularios incompletos o con datos incorrectos serán{" "}
               <span className="text-red-400 font-semibold">rechazados</span>.
             </li>
             <li>
-              • El{" "}
-              <span className="text-orange-400 font-semibold">
-                Staff Delictivo
-              </span>{" "}
-              revisará tus respuestas y recibirás tu resultado por{" "}
+              • El <span className="text-orange-400 font-semibold">Staff Delictivo</span> revisará
+              tus respuestas y recibirás tu resultado por{" "}
               <span className="text-indigo-400 font-semibold">Discord</span>.
             </li>
           </ul>
@@ -84,9 +87,7 @@ export default function Instructions() {
           <p className="text-slate-300 mb-6">
             Cuando estés listo(a), podés comenzar.
             <br />
-            <span className="text-orange-400 font-semibold">
-              Éxitos en tu postulación.
-            </span>
+            <span className="text-orange-400 font-semibold">Éxitos en tu postulación.</span>
           </p>
 
           <button
