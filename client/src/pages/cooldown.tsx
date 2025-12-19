@@ -11,23 +11,21 @@ function formatMs(ms: number) {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-export default function Cooldown() {
+export default function CooldownPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const untilRaw = params.get("until");
-  const leftRaw = params.get("left"); // fallback por si cae viejo
+  const leftRaw = params.get("left"); // fallback si cae viejo
 
-  // Si viene until, usamos eso (lo correcto)
-  // Si solo viene left, lo convertimos a una fecha aproximada (fallback)
   const until = useMemo(() => {
     const n = untilRaw ? Number(untilRaw) : NaN;
     if (Number.isFinite(n) && n > 0) return n;
 
+    // fallback si todavía viene ?left=12 (viejo)
     const leftHours = leftRaw ? Number(leftRaw) : NaN;
     if (Number.isFinite(leftHours) && leftHours > 0) {
       return Date.now() + leftHours * 60 * 60 * 1000;
     }
 
-    // Si no hay nada, solo mostramos mensaje genérico
     return 0;
   }, [untilRaw, leftRaw]);
 
@@ -55,9 +53,7 @@ export default function Cooldown() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-4">
               <p className="text-sm">
                 {done ? (
-                  <>
-                    ✅ Cooldown finalizado. Ya podés volver a intentar.
-                  </>
+                  <>✅ Cooldown finalizado. Ya podés volver a intentar.</>
                 ) : (
                   <>
                     ⏳ Tiempo restante:{" "}
@@ -74,19 +70,19 @@ export default function Cooldown() {
         )}
 
         <div className="flex gap-3">
-          <a
-            className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold"
-            href="/"
-          >
-            Volver al inicio
-          </a>
-
           <Link
             className="flex-1 rounded-xl border border-white/15 py-2 text-center font-semibold"
             href="/"
           >
-            Reintentar
+            Volver al inicio
           </Link>
+
+          <a
+            className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold"
+            href="/api/auth/discord"
+          >
+            Reintentar
+          </a>
         </div>
       </div>
     </div>
