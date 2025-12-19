@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import AuthCallback from "@/pages/auth-callback";
+import NeedGeneralWhitelistPage from "@/pages/need-general-whitelist";
 import Instructions from "@/pages/instructions";
 import WhitelistFormPage from "@/pages/whitelist-form";
 import CooldownPage from "@/pages/cooldown";
