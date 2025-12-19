@@ -43,7 +43,7 @@ const COOLDOWN_HOURS = 12;
 const COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
 
 // Guarda intentos (cooldown) en memoria
-const lastAttemptById = new Map<string, number>();
+const cooldownUntilById = new Map<string, number>(); // discordId -> expiresAt
 
 // Guarda una sesión activa del formulario (evita timeout inmediato / doble llamada)
 type ActiveWL = { startedAt: number; expiresAt: number };
