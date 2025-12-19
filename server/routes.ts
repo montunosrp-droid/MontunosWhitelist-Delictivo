@@ -9,16 +9,61 @@ function requireAuth(req: any, res: any, next: any) {
   res.status(401).json({ error: "Not authenticated" });
 }
 
+/**
+ * =========================
+ * Helpers
+ * =========================
+ */
+
+async function fetchGuildMemberRoles(user: any): Promise<string[]> {
+  const accessToken = user?.accessToken;
+  if (!accessToken) return [];
+
+  try {
+    const resp = await fetch(
+      `https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!resp.ok) return [];
+    const data: any = await resp.json();
+    return Array.isArray(data.roles) ? data.roles : [];
+  } catch {
+    return [];
+  }
+}
+
+async function userHasRole(user: any, roleId: string): Promise<boolean> {
+  if (!roleId) return false;
+  const roles = await fetchGuildMemberRoles(user);
+  return roles.includes(roleId);
+}
+
 // ⏱️ COOLDOWN
 const COOLDOWN_HOURS = 12;
 const COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
 
-// Guarda intentos en memoria
+// Guarda intentos (cooldown) en memoria
 const lastAttemptById = new Map<string, number>();
+
+// Guarda una sesión activa del formulario (evita timeout inmediato / doble llamada)
+type ActiveWL = { startedAt: number; expiresAt: number };
+const activeWhitelistById = new Map<string, ActiveWL>();
+
+// Duración real del formulario (default 20 minutos si no configuras ENV)
+const FORM_DURATION_MS = (() => {
+  const raw = process.env.WL_FORM_DURATION_MS ?? process.env.WL_DURATION_MS;
+  const n = raw ? Number(raw) : NaN;
+  // default: 20 min
+  return Number.isFinite(n) && n > 0 ? n : 20 * 60 * 1000;
+})();
 
 // ENV
 const GUILD_ID = process.env.DISCORD_GUILD_ID as string;
 const WL_ROLE_ID = process.env.DISCORD_WL_ROLE_ID as string;
+// (OPCIONAL) Rol requerido para poder llenar este formulario (WL general)
+const REQUIRED_GENERAL_WL_ROLE_ID = process.env.DISCORD_GENERAL_WL_ROLE_ID as
+  | string
+  | undefined;
 
 if (!GUILD_ID || !WL_ROLE_ID) {
   throw new Error(
@@ -28,24 +73,23 @@ if (!GUILD_ID || !WL_ROLE_ID) {
 
 // 🔍 Revisa si ya tiene WL
 async function userHasWhitelistRole(user: any): Promise<boolean> {
-  const accessToken = user?.accessToken;
-  if (!accessToken) return false;
+  return userHasRole(user, WL_ROLE_ID);
+}
 
-  try {
-    const resp = await fetch(
-      `https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
+async function requireGeneralWhitelist(req: any, res: any, next: any) {
+  // Si no configuraste el ENV, no bloqueamos nada.
+  if (!REQUIRED_GENERAL_WL_ROLE_ID) return next();
 
-    if (!resp.ok) return false;
-
-    const data: any = await resp.json();
-    return Array.isArray(data.roles) && data.roles.includes(WL_ROLE_ID);
-  } catch {
-    return false;
+  const ok = await userHasRole(req.user, REQUIRED_GENERAL_WL_ROLE_ID);
+  if (!ok) {
+    return res.status(403).json({
+      ok: false,
+      error: "missing_general_whitelist",
+      message:
+        "Necesitás tener la Whitelist General (rol requerido) antes de iniciar este formulario.",
+    });
   }
+  return next();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -61,8 +105,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       if (!req.user) return res.redirect("/?error=no_user");
 
-      // A veces el objeto de usuario puede variar según cómo esté deserializando
-      // (DB, tipos, migraciones). Esto evita que el flujo se rompa y te mande al home.
       const userId = String(
         req.user.discordId ?? req.user.discord_id ?? req.user.id ?? ""
       );
@@ -72,10 +114,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const now = Date.now();
 
-      // ✅ Si ya tiene WL
+      // ✅ Si ya tiene WL (delictiva)
       const alreadyHasWL = await userHasWhitelistRole(req.user);
       if (alreadyHasWL) {
         return res.redirect("/already-whitelisted");
+      }
+
+      // ⛔ Si requerís WL general y no la tiene
+      if (REQUIRED_GENERAL_WL_ROLE_ID) {
+        const hasGeneral = await userHasRole(
+          req.user,
+          REQUIRED_GENERAL_WL_ROLE_ID
+        );
+        if (!hasGeneral) {
+          return res.redirect("/need-general-whitelist");
+        }
       }
 
       // ⛔ Cooldown SOLO si ya hubo intento previo
@@ -86,24 +139,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(`/cooldown?left=${hoursLeft}`);
       }
 
-      // ⚠️ NO marcamos intento todavía.
-      // Mantener el mismo flujo que la WL general:
-      // callback -> /auth/callback -> (frontend) -> /instructions
       return res.redirect(`/auth/callback?f=1&id=${userId}`);
     }
   );
 
   // 🟢 MARCAR INICIO REAL DE WL
-  app.post("/api/whitelist/start", requireAuth, (req: any, res) => {
-    const userId = String(req.user.discordId);
-    lastAttemptById.set(userId, Date.now());
-    return res.json({ ok: true });
-  });
+  app.post(
+    "/api/whitelist/start",
+    requireAuth,
+    requireGeneralWhitelist,
+    (req: any, res) => {
+      const userId = String(req.user.discordId);
+      const now = Date.now();
+
+      // Cooldown desde que inicia (si querés que empiece al expirar, lo movemos)
+      lastAttemptById.set(userId, now);
+
+      // Sesión activa para evitar timeout inmediato
+      activeWhitelistById.set(userId, {
+        startedAt: now,
+        expiresAt: now + FORM_DURATION_MS,
+      });
+
+      return res.json({ ok: true, expiresAt: now + FORM_DURATION_MS });
+    }
+  );
 
   // ⛔ TIMEOUT (se acabó el tiempo)
   app.post("/api/whitelist/timeout", requireAuth, (req: any, res) => {
     const userId = String(req.user.discordId);
-    lastAttemptById.set(userId, Date.now());
+    const now = Date.now();
+
+    const active = activeWhitelistById.get(userId);
+
+    // ✅ Protección: si el front llama timeout de inmediato, NO lo castigamos
+    if (!active) {
+      return res.json({ ok: true, ignored: true, reason: "no_active_session" });
+    }
+
+    if (now < active.expiresAt) {
+      return res.json({
+        ok: true,
+        ignored: true,
+        reason: "not_expired_yet",
+        msLeft: active.expiresAt - now,
+      });
+    }
+
+    // Aquí sí expiró de verdad
+    lastAttemptById.set(userId, now);
+    activeWhitelistById.delete(userId);
     return res.json({ ok: true });
   });
 
