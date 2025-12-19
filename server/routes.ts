@@ -187,9 +187,9 @@ app.post(
     }
 
     // Aquí sí expiró de verdad
-    lastAttemptById.set(userId, now);
+    cooldownUntilById.set(userId, now + COOLDOWN_MS);
     activeWhitelistById.delete(userId);
-    return res.json({ ok: true });
+    return res.json({ ok: true, cooldownUntil: now + COOLDOWN_MS });
   });
 
   // USER
