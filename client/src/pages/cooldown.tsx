@@ -13,6 +13,23 @@ function formatMs(ms: number) {
 export default function CooldownPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const untilRaw = params.get("until");
+
+  // ✅ Compat: si viene ?left=12, lo convertimos a ?until=...
+  useEffect(() => {
+    if (untilRaw) return;
+
+    const leftRaw = params.get("left");
+    const left = leftRaw ? Number(leftRaw) : NaN;
+
+    if (Number.isFinite(left) && left > 0) {
+      const until2 = Date.now() + left * 60 * 60 * 1000;
+      const newUrl = `${window.location.pathname}?until=${until2}`;
+      window.history.replaceState({}, "", newUrl);
+      // recargar estado en la misma sesión
+      window.location.reload();
+    }
+  }, [untilRaw, params]);
+
   const until = untilRaw ? Number(untilRaw) : NaN;
 
   const [now, setNow] = useState(Date.now());
