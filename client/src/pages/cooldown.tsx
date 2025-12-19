@@ -12,38 +12,49 @@ function formatMs(ms: number) {
 
 export default function CooldownPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
+
+  // ✅ 1) Prioridad: until (timestamp absoluto)
   const untilRaw = params.get("until");
-  const until = untilRaw ? Number(untilRaw) : NaN;
+  let until = untilRaw ? Number(untilRaw) : NaN;
+
+  // ✅ 2) Fallback: left=12 (horas) -> convertir a until y persistir
+  const leftRaw = params.get("left");
+  const leftHours = leftRaw ? Number(leftRaw) : NaN;
+
+  const key = "wl_cooldown_until";
+
+  if (!Number.isFinite(until) || until <= 0) {
+    const stored = Number(window.localStorage.getItem(key) ?? "NaN");
+    if (Number.isFinite(stored) && stored > Date.now()) {
+      until = stored;
+    } else if (Number.isFinite(leftHours) && leftHours > 0) {
+      until = Date.now() + leftHours * 60 * 60 * 1000;
+      window.localStorage.setItem(key, String(until));
+    }
+  } else {
+    window.localStorage.setItem(key, String(until));
+  }
 
   const [now, setNow] = useState(Date.now());
-
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // ✅ Si no viene ?until=..., NO inventamos tiempo
   if (!Number.isFinite(until) || until <= 0) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-black/40 p-6 shadow-xl">
           <h1 className="text-2xl font-bold mb-2">Estás en cooldown</h1>
           <p className="text-sm opacity-80 mb-4">
-            No se recibió el tiempo exacto del cooldown. Volvé a intentar desde el inicio.
+            No se recibió el tiempo del cooldown. Volvé a intentar desde el inicio.
           </p>
 
           <div className="flex gap-3">
-            <a
-              className="flex-1 rounded-xl border border-white/15 py-2 text-center font-semibold"
-              href="/"
-            >
+            <a className="flex-1 rounded-xl border border-white/15 py-2 text-center font-semibold" href="/">
               Volver al inicio
             </a>
-
-            <a
-              className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold"
-              href="/api/auth/discord"
-            >
+            <a className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold" href="/api/auth/discord">
               Reintentar
             </a>
           </div>
@@ -69,25 +80,17 @@ export default function CooldownPage() {
               <>✅ Cooldown finalizado. Ya podés volver a intentar.</>
             ) : (
               <>
-                ⏳ Tiempo restante:{" "}
-                <span className="font-semibold">{formatMs(msLeft)}</span>
+                ⏳ Tiempo restante: <span className="font-semibold">{formatMs(msLeft)}</span>
               </>
             )}
           </p>
         </div>
 
         <div className="flex gap-3">
-          <a
-            className="flex-1 rounded-xl border border-white/15 py-2 text-center font-semibold"
-            href="/"
-          >
+          <a className="flex-1 rounded-xl border border-white/15 py-2 text-center font-semibold" href="/">
             Volver al inicio
           </a>
-
-          <a
-            className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold"
-            href="/api/auth/discord"
-          >
+          <a className="flex-1 rounded-xl bg-white text-black py-2 text-center font-semibold" href="/api/auth/discord">
             Reintentar
           </a>
         </div>
