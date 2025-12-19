@@ -20,6 +20,7 @@ function Router() {
       <Route path="/" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/auth/callback" component={AuthCallback} />
+      <Route path="/need-general-whitelist" component={NeedGeneralWhitelistPage} />
 
       {/* Rutas del flujo de whitelist */}
       <Route path="/instructions" component={Instructions} />
