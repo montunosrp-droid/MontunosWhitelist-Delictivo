@@ -143,27 +143,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // 🟢 MARCAR INICIO REAL DE WL
-  app.post(
-    "/api/whitelist/start",
-    requireAuth,
-    requireGeneralWhitelist,
-    (req: any, res) => {
-      const userId = String(req.user.discordId);
-      const now = Date.now();
+// 🟢 MARCAR INICIO REAL DE WL
+app.post(
+  "/api/whitelist/start",
+  requireAuth,
+  requireGeneralWhitelist,
+  (req: any, res) => {
+    const userId = String(req.user.discordId);
+    const now = Date.now();
 
-      // Cooldown desde que inicia (si querés que empiece al expirar, lo movemos)
-      lastAttemptById.set(userId, now);
-
-      // Sesión activa para evitar timeout inmediato
-      activeWhitelistById.set(userId, {
-        startedAt: now,
-        expiresAt: now + FORM_DURATION_MS,
-      });
-
-      return res.json({ ok: true, expiresAt: now + FORM_DURATION_MS });
+    // ✅ Si ya existe una sesión activa (doble request), reutilizarla
+    const existing = activeWhitelistById.get(userId);
+    if (existing && now < existing.expiresAt) {
+      return res.json({ ok: true, expiresAt: existing.expiresAt, reused: true });
     }
-  );
+
+    // ✅ Crear sesión activa (SIN activar cooldown aquí)
+    const expiresAt = now + FORM_DURATION_MS;
+    activeWhitelistById.set(userId, { startedAt: now, expiresAt });
+
+    return res.json({ ok: true, expiresAt });
+  }
+);
+
 
   // ⛔ TIMEOUT (se acabó el tiempo)
   app.post("/api/whitelist/timeout", requireAuth, (req: any, res) => {
