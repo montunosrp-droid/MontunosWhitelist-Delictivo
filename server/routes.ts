@@ -133,6 +133,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ⛔ Cooldown SOLO si ya hubo intento previo
       const until = cooldownUntilById.get(userId);
+
+      console.log("DEBUG COOLDOWN REDIRECT", { userId, until });
+      
       if (until && now < until) {
         return res.redirect(`/cooldown?until=${until}`);
       }
