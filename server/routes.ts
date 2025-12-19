@@ -132,11 +132,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // ⛔ Cooldown SOLO si ya hubo intento previo
-      const lastAttempt = lastAttemptById.get(userId);
-      if (lastAttempt && now - lastAttempt < COOLDOWN_MS) {
-        const msLeft = COOLDOWN_MS - (now - lastAttempt);
-        const hoursLeft = Math.ceil(msLeft / (1000 * 60 * 60));
-        return res.redirect(`/cooldown?left=${hoursLeft}`);
+      const until = cooldownUntilById.get(userId);
+      if (until && now < until) {
+        return res.redirect(`/cooldown?until=${until}`);
       }
 
       return res.redirect(`/auth/callback?f=1&id=${userId}`);
