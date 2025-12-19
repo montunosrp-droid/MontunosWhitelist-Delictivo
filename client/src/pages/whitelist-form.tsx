@@ -38,35 +38,50 @@ export default function WhitelistFormPage() {
   const startSentRef = useRef(false);
 
   // ✅ Cuando se acaba el tiempo: avisar backend (si hay sesión) y mandar a cooldown
-  const handleTimeout = async () => {
-    if (timeoutSentRef.current) return;
-    timeoutSentRef.current = true;
+const handleTimeout = async () => {
+  if (timeoutSentRef.current) return;
+  timeoutSentRef.current = true;
 
-    // Cortamos el form en UI
-    setIsTimeOver(true);
-    setSecondsLeft(0);
+  // Cortamos el form en UI
+  setIsTimeOver(true);
+  setSecondsLeft(0);
 
-    try {
-      const resp = await fetch("/api/whitelist/timeout", {
-        method: "POST",
-        credentials: "include",
-      });
+  try {
+    const resp = await fetch("/api/whitelist/timeout", {
+      method: "POST",
+      credentials: "include",
+    });
 
-      // Si no está autenticado, no lo mandés al cooldown (si no, se queda trabado)
-      if (resp.status === 401) {
-        setLocation("/?error=not_authenticated");
-        return;
-      }
-
-      // cooldown con contador
-      setLocation(`/cooldown?left=${COOLDOWN_HOURS}`);
+    // Si no está autenticado
+    if (resp.status === 401) {
+      setLocation("/?error=not_authenticated");
       return;
-    } catch (err) {
-      console.error("Error enviando timeout de whitelist:", err);
-      // fallback: igual lo mandamos al cooldown con el número fijo
-      setLocation(`/cooldown?left=${COOLDOWN_HOURS}`);
     }
-  };
+
+    const data = await resp.json().catch(() => ({} as any));
+
+    // ✅ Si el backend dice que todavía NO expiró, no lo mandes a cooldown
+    if (data?.ignored) {
+      // devolvelo al formulario o al inicio, como prefirás
+      // yo lo mando al inicio para que no se quede trabado
+      setLocation("/");
+      return;
+    }
+
+    // ✅ Solo cuando expiró de verdad, el backend manda cooldownUntil
+    if (data?.cooldownUntil) {
+      setLocation(`/cooldown?until=${data.cooldownUntil}`);
+      return;
+    }
+
+    // fallback: si por alguna razón no vino cooldownUntil, lo mandamos al inicio
+    setLocation("/");
+  } catch (err) {
+    console.error("Error enviando timeout de whitelist:", err);
+    // fallback seguro: al inicio
+    setLocation("/");
+  }
+};
 
   // ✅ MARCAR INICIO REAL DE WL (esto es lo que faltaba)
   useEffect(() => {
