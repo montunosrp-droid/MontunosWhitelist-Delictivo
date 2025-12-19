@@ -39,7 +39,7 @@ export function setupAuth(app: Express) {
         callbackURL: DISCORD_REDIRECT_URI,
 
         // ✅ permisos para poder leer roles del guild
-        scope: ["identify", "email", "guilds.members.read"],
+        scope: ["identify", "email", "guilds", "guilds.members.read"],
 
         // ✅ ayudan a evitar flows raros/dobles
         state: true,
