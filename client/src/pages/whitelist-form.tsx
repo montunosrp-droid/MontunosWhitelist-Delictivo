@@ -54,9 +54,22 @@ const handleTimeout = async () => {
 
     // Si no está autenticado
     if (resp.status === 401) {
-      setLocation("/?error=not_authenticated");
-      return;
-    }
+  setLocation("/?error=not_authenticated");
+  return;
+}
+
+// 🔧 PASO 2 — RESET local (NO borrar nada, solo agregar)
+try {
+  const params = new URLSearchParams(window.location.search);
+  const fParam = ((params.get("f") ?? "1") as FormId) || "1";
+  const discordId = params.get("id");
+
+  const startKey = getStartKey(discordId, fParam);
+  const penaltyKey = getPenaltyKey(discordId, fParam);
+
+  localStorage.setItem(startKey, String(Date.now()));
+  localStorage.setItem(penaltyKey, "0");
+} catch {}
 
     const data = await resp.json().catch(() => ({} as any));
 
