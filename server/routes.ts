@@ -49,12 +49,12 @@ const cooldownUntilById = new Map<string, number>(); // discordId -> expiresAt
 type ActiveWL = { startedAt: number; expiresAt: number };
 const activeWhitelistById = new Map<string, ActiveWL>();
 
-// Duración real del formulario (default 20 minutos si no configuras ENV)
+// Duración real del formulario (default 30 minutos si no configuras ENV)
 const FORM_DURATION_MS = (() => {
   const raw = process.env.WL_FORM_DURATION_MS ?? process.env.WL_DURATION_MS;
   const n = raw ? Number(raw) : NaN;
   // default: 20 min
-  return Number.isFinite(n) && n > 0 ? n : 20 * 60 * 1000;
+  return Number.isFinite(n) && n > 0 ? n : 30 * 60 * 1000;
 })();
 
 // ENV
