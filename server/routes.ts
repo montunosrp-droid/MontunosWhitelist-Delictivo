@@ -209,13 +209,14 @@ app.post(
 
   // LOGOUT
   app.post("/api/auth/logout", (req, res) => {
-    req.logout(() => {
-      req.session.destroy(() => {
-        res.clearCookie("connect.sid");
-        res.json({ success: true });
-      });
+  req.logout(() => {
+    req.session.destroy(() => {
+      // 🔥 IMPORTANTE: usar el nombre REAL de la cookie
+      res.clearCookie("montunos.sid");
+      res.json({ success: true });
     });
   });
+});
 
   // CHECK WL (dashboard)
   app.get("/api/whitelist/check", requireAuth, async (req, res) => {
