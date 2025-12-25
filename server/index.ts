@@ -33,17 +33,29 @@ app.use(
 );
 app.use(express.urlencoded({ extended: false }));
 
+const isProd = process.env.NODE_ENV === "production";
+
 app.use(
   session({
+    name: "montunos.sid", // nombre de cookie (recomendado)
     secret:
       process.env.SESSION_SECRET ||
       "montunos-whitelist-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
+
+    // IMPORTANTE para Render (proxy HTTPS)
+    proxy: true,
+
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24h
+
+      // Render usa HTTPS → secure debe ser true en prod
+      secure: isProd,
+
+      // Evita que se pierda la sesión en OAuth / Discord in-app browser
+      sameSite: isProd ? "none" : "lax",
     },
   }),
 );
