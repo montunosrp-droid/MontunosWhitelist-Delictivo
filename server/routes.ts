@@ -98,53 +98,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // CALLBACK DISCORD
   app.get(
-    "/api/auth/discord/callback",
-    passport.authenticate("discord", {
-      failureRedirect: "/?error=auth_failed",
-    }),
-    async (req: any, res) => {
-      if (!req.user) return res.redirect("/?error=no_user");
-
-      const userId = String(
-        req.user.discordId ?? req.user.discord_id ?? req.user.id ?? ""
-      );
-
-      if (!userId || userId === "undefined" || userId === "null") {
-        return res.redirect("/?error=missing_id");
-      }
-      const now = Date.now();
-
-      // ✅ Si ya tiene WL (delictiva)
-      const alreadyHasWL = await userHasWhitelistRole(req.user);
-      if (alreadyHasWL) {
-        return res.redirect("/already-whitelisted");
-      }
-
-      // ⛔ Si requerís WL general y no la tiene
-      if (REQUIRED_GENERAL_WL_ROLE_ID) {
-        const hasGeneral = await userHasRole(
-          req.user,
-          REQUIRED_GENERAL_WL_ROLE_ID
-        );
-        if (!hasGeneral) {
-          return res.redirect("/need-general-whitelist");
-        }
-      }
-
-      // ⛔ Cooldown SOLO si ya hubo intento previo
-      const until = cooldownUntilById.get(userId);
-
-if (typeof until === "number" && Number.isFinite(until) && now < until) {
-  console.log("DEBUG COOLDOWN REDIRECT", { userId, until });
-  return res.redirect(`/cooldown?until=${until}`);
-}
-
-// (opcional) log más limpio:
-console.log("DEBUG COOLDOWN OK", { userId, hasCooldown: typeof until === "number" });
-
-      return res.redirect(`/auth/callback?f=1&id=${userId}`);
+  "/api/auth/discord/callback",
+  passport.authenticate("discord", {
+    failureRedirect: "/?error=auth_failed",
+  }),
+  async (req: any, res) => {
+    if (!req.user) {
+      return req.session.save(() => res.redirect("/?error=no_user"));
     }
-  );
+
+    const userId = String(
+      req.user.discordId ?? req.user.discord_id ?? req.user.id ?? ""
+    );
+
+    if (!userId || userId === "undefined" || userId === "null") {
+      return req.session.save(() => res.redirect("/?error=missing_id"));
+    }
+
+    const now = Date.now();
+
+    // ✅ Ya tiene WL delictiva
+    const alreadyHasWL = await userHasWhitelistRole(req.user);
+    if (alreadyHasWL) {
+      return req.session.save(() => res.redirect("/already-whitelisted"));
+    }
+
+    // ⛔ Requiere WL general y no la tiene
+    if (REQUIRED_GENERAL_WL_ROLE_ID) {
+      const hasGeneral = await userHasRole(
+        req.user,
+        REQUIRED_GENERAL_WL_ROLE_ID
+      );
+      if (!hasGeneral) {
+        return req.session.save(() =>
+          res.redirect("/need-general-whitelist")
+        );
+      }
+    }
+
+    // ⏱️ Cooldown solo si existe y sigue activo
+    const until = cooldownUntilById.get(userId);
+    if (typeof until === "number" && Number.isFinite(until) && now < until) {
+      return req.session.save(() =>
+        res.redirect(`/cooldown?until=${until}`)
+      );
+    }
+
+    // ✅ TODO OK → entrar a la whitelist
+    return req.session.save(() =>
+      res.redirect(`/auth/callback?f=1&id=${userId}`)
+    );
+  }
+);
 
 // 🟢 MARCAR INICIO REAL DE WL
 app.post(
